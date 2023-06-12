@@ -2,6 +2,7 @@ const express = require('express');
 const mysql = require('mysql2');
 const inquirer = require('inquirer');
 const fetch = require("node-fetch");
+var Table = require('cli-table');
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -11,83 +12,84 @@ app.use(express.json());
 
 class EmployeeTracker {
     constructor() { };
-    viewDepartments = () =>
-    fetch('/api/view-departments', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
+    apiCall = (task) => {
+        if (task === 'view-departments' || task === 'view-roles' || task === 'view-employees') {
+            console.log(task);
+            fetch('http://localhost:3001/api/' + task, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json()) // Parse the response as JSON
+            .then(data => {
+                // Process the data
+                let headers = Object.keys(data[0]);
+                let table = new Table({ head: headers});
+                for (let datum of data) {
+                    let dataValues = [];
+                    for (let key of Object.keys(datum)) {
+                        dataValues.push(datum[key]);
+                    }
+                    table.push(dataValues);
+                }
+                console.log("\n" + table.toString());
+            })
+            .catch(error => {
+                // Handle any errors
+                console.error('Error:', error);
+            });
         }
-    })
-    .then(response => response.json()) // Parse the response as JSON
-    .then(data => {
-        // Process the data
-        console.log(data);
-        // Do something with the data here
-    })
-    .catch(error => {
-        // Handle any errors
-        console.error('Error:', error);
-    });
-    performAction = (action) => {
-            switch (action) {
-                case 'viewDepartments':
-                    this.viewDepartments();
-                    break;
-                default:
-                    break;
-            }
     }
-      taskPrompt = () => {
-          const questions = [
-              {
-                  type: 'list',
-                  message: 'What task would you like to perform?',
-                  name: 'task',
-                  // view all departments,
-                  // view all roles, view all employees,
-                  // add a department,
-                  // add a role, add an employee,
-                  // and update an employee role
-                  choices: [
-                      {
-                          name: 'View All Departments',
-                          value: 'viewDepartments'
-                      },
-                      {
-                          name: 'View All Roles',
-                          value: 'viewRoles',
-                      },
-                      {
-                          name: 'View All Employees',
-                          value: 'viewEmployees'
-                      },
-                      {
-                          name: 'Add a Department',
-                          value: 'MIT',
-                      },
-                      {
-                          name: 'Add a Role',
-                          value: 'MIT'
-                      },
-                      {
-                          name: 'Add an Employee',
-                          value: 'MIT'
-                      },
-                      {
-                          name: 'Update and Employee Role',
-                          value: 'MIT'
-                      }
-                  ]
-              },
-          ];
-          inquirer
-              .prompt(questions)
-              .then((response) => {
-                  this.performAction(response.task);
-                  console.log(response);
-                  this.taskPrompt();
-              })
-      }
+    performAction = (task) => {
+        this.apiCall(task);
+    }
+    taskPrompt = () => {
+        const questions = [
+            {
+                type: 'list',
+                message: 'What task would you like to perform?',
+                name: 'task',
+                choices: [
+                    {
+                        name: 'View All Departments',
+                        value: 'view-departments'
+                    },
+                    {
+                        name: 'View All Roles',
+                        value: 'view-roles',
+                    },
+                    {
+                        name: 'View All Employees',
+                        value: 'view-employees'
+                    },
+                    {
+                        name: 'Add a Department',
+                        value: 'add-department',
+                    },
+                    {
+                        name: 'Add a Role',
+                        value: 'add-role'
+                    },
+                    {
+                        name: 'Add an Employee',
+                        value: 'add-employee'
+                    },
+                    {
+                        name: 'Update an Employee Role',
+                        value: 'update-employee-role'
+                    }
+                ]
+            },
+        ];
+        inquirer
+            .prompt(questions)
+            .then((response) => {
+                console.log("\n");
+                console.log(this.performAction(response.task));
+                this.taskPrompt();
+            })
+    }
 }
   
 const db = mysql.createConnection(
