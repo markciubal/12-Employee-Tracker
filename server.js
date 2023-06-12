@@ -1,5 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2');
+const inquirer = require('inquirer');
+const fetch = require("node-fetch");
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -7,6 +9,87 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+class EmployeeTracker {
+    constructor() { };
+    viewDepartments = () =>
+    fetch('/api/view-departments', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json()) // Parse the response as JSON
+    .then(data => {
+        // Process the data
+        console.log(data);
+        // Do something with the data here
+    })
+    .catch(error => {
+        // Handle any errors
+        console.error('Error:', error);
+    });
+    performAction = (action) => {
+            switch (action) {
+                case 'viewDepartments':
+                    this.viewDepartments();
+                    break;
+                default:
+                    break;
+            }
+    }
+      taskPrompt = () => {
+          const questions = [
+              {
+                  type: 'list',
+                  message: 'What task would you like to perform?',
+                  name: 'task',
+                  // view all departments,
+                  // view all roles, view all employees,
+                  // add a department,
+                  // add a role, add an employee,
+                  // and update an employee role
+                  choices: [
+                      {
+                          name: 'View All Departments',
+                          value: 'viewDepartments'
+                      },
+                      {
+                          name: 'View All Roles',
+                          value: 'viewRoles',
+                      },
+                      {
+                          name: 'View All Employees',
+                          value: 'viewEmployees'
+                      },
+                      {
+                          name: 'Add a Department',
+                          value: 'MIT',
+                      },
+                      {
+                          name: 'Add a Role',
+                          value: 'MIT'
+                      },
+                      {
+                          name: 'Add an Employee',
+                          value: 'MIT'
+                      },
+                      {
+                          name: 'Update and Employee Role',
+                          value: 'MIT'
+                      }
+                  ]
+              },
+          ];
+          inquirer
+              .prompt(questions)
+              .then((response) => {
+                  this.performAction(response.task);
+                  console.log(response);
+                  this.taskPrompt();
+              })
+      }
+}
+  
 const db = mysql.createConnection(
     {
         host: 'localhost',
@@ -35,7 +118,8 @@ app.get('/api/view-departments', (req, res) => {
 // THEN I am presented with the job title, role id, the department that role belongs to, and the salary for that role
 
 app.get('/api/view-roles', (req, res) => {
-    db.query('SELECT * FROM roles;', (error, results) => {
+    db.query('SELECT * FROM roles;',
+        (error, results) => {
         if (error) {
             res.status(401).json(error);
         } else {
@@ -46,9 +130,9 @@ app.get('/api/view-roles', (req, res) => {
 
 // WHEN I choose to view all employees
 // THEN I am presented with a formatted table showing employee data, including employee ids, first names, last names, job titles, departments, salaries, and managers that the employees report to
-
 app.get('/api/view-employees', (req, res) => {
-    db.query('SELECT * FROM employees;', (error, results) => {
+    db.query('SELECT * FROM employees;',
+        (error, results) => {
         if (error) {
             res.status(401).json(error);
         } else {
@@ -60,9 +144,9 @@ app.get('/api/view-employees', (req, res) => {
 // WHEN I choose to add a department
 // THEN I am prompted to enter the name of the department and that department is added to the database
 app.post('/api/add-department', (req, res) => {
-    console.log(req.body.department);
-    db.query(`INSERT INTO departments (name) VALUES (?);`, req.body.department, (error, results) => {
-        
+    db.query(`INSERT INTO departments (name) VALUES (?);`,
+        req.body.department,
+        (error, results) => {
         if (error) {
             res.status(401).json(error);
         } else {
@@ -76,7 +160,9 @@ app.post('/api/add-department', (req, res) => {
 // WHEN I choose to add a department
 // THEN I am prompted to enter the name of the department and that department is added to the database
 app.post('/api/add-role', (req, res) => {
-    db.query(`INSERT INTO roles (title, salary, department_id) VALUES (?, ?, ?);`, [req.body.title, req.body.salary, req.body.department_id], (error, results) => {
+    db.query(`INSERT INTO roles (title, salary, department_id) VALUES (?, ?, ?);`,
+        [req.body.title, req.body.salary,
+        req.body.department_id], (error, results) => {
         if (error) {
             res.status(401).json(error);
         } else {
@@ -88,7 +174,9 @@ app.post('/api/add-role', (req, res) => {
 // WHEN I choose to add an employee
 // THEN I am prompted to enter the employee’s first name, last name, role, and manager, and that employee is added to the database
 app.post('/api/add-employee', (req, res) => {
-    db.query(`INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?);`, [req.body.first_name, req.body.last_name, req.body.role_id, req.body.manager_id], (error, results) => {
+    db.query(`INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?);`,
+        [req.body.first_name, req.body.last_name, req.body.role_id, req.body.manager_id],
+        (error, results) => {
         if (error) {
             res.status(401).json(error);
         } else {
@@ -100,10 +188,42 @@ app.post('/api/add-employee', (req, res) => {
 // WHEN I choose to update an employee role
 // THEN I am prompted to select an employee to update and their new role and this information is updated in the database
 
+app.post('/api/update-employee-role', (req, res) => {
+    db.query(`UPDATE employees SET role_id=? WHERE id = ?;`,
+        [req.body.role_id, req.body.id],
+        (error, results) => {
+        if (error) {
+            res.status(401).json(error);
+        } else {
+            res.json(results)
+        }    
+    });
+});
+
 app.use((req, res) => {
   res.status(404).end();
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
+    // Initialize application.
+    console.log(`
+ _______  __   __  _______  ___      _______  __   __  _______  _______ 
+|       ||  |_|  ||       ||   |    |       ||  | |  ||       ||       |
+|    ___||       ||    _  ||   |    |   _   ||  |_|  ||    ___||    ___|
+|   |___ |       ||   |_| ||   |    |  | |  ||       ||   |___ |   |___ 
+|    ___||       ||    ___||   |___ |  |_|  ||_     _||    ___||    ___|
+|   |___ | ||_|| ||   |    |       ||       |  |   |  |   |___ |   |___ 
+|_______||_|   |_||___|    |_______||_______|  |___|  |_______||_______|
+     _______  ______    _______  _______  ___   _  _______  ______      
+    |       ||    _ |  |   _   ||       ||   | | ||       ||    _ |     
+    |_     _||   | ||  |  |_|  ||       ||   |_| ||    ___||   | ||     
+      |   |  |   |_||_ |       ||       ||      _||   |___ |   |_||_    
+      |   |  |    __  ||       ||      _||     |_ |    ___||    __  |   
+      |   |  |   |  | ||   _   ||     |_ |    _  ||   |___ |   |  | |   
+      |___|  |___|  |_||__| |__||_______||___| |_||_______||___|  |_|   
+`)
+    const tracker = new EmployeeTracker();
+    tracker.taskPrompt(); 
+  
 });
