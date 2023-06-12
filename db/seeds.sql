@@ -13,7 +13,7 @@ VALUES ("Information Technology"),
 INSERT INTO roles (title, salary, department_id)
 VALUES ("Human Resources Specialist", 75000, 2),
 ("Marketing Specialist", 65000, 4),
-("Information Technology Specialist", 75000, 4),
+("Information Technology Specialist", 75000, 1),
 ("Accounting and Finance Specialist", 55000, 5),
 ("Business Development Specialist", 55000, 6),
 ("Board Member", 150000, 7),

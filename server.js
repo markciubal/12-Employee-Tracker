@@ -24,6 +24,7 @@ class EmployeeTracker {
             .then(response => response.json()) // Parse the response as JSON
             .then(data => {
                 // Process the data
+                console.log(data);
                 let headers = Object.keys(data[0]);
                 let table = new Table({ head: headers});
                 for (let datum of data) {
@@ -34,15 +35,113 @@ class EmployeeTracker {
                     table.push(dataValues);
                 }
                 console.log("\n" + table.toString());
+                this.taskPrompt();
             })
             .catch(error => {
                 // Handle any errors
                 console.error('Error:', error);
+                this.taskPrompt();
             });
+        } else if (task === 'add-department') {
+            this.promptDepartment(task);
+        } else if (task === 'add-role') {
+            this.promptRole(task);
+        } else if (task === 'add-employee') {
+            this.promptEmployee(task);
+        } else if (task === 'update-employee-role') {
+            console.log("This action has not been implemented.");
+        } else {
+            console.log("This action has no consequence.");
         }
     }
-    performAction = (task) => {
-        this.apiCall(task);
+    postResponse = (task, response) => {
+        console.log(response);
+        fetch('http://localhost:3001/api/' + task, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(response)
+        })
+        .then(response => response.json()) // Parse the response as JSON
+        .then(data => {
+            console.log(data);
+            this.taskPrompt();
+        })
+        .catch(error => {
+            // Handle any errors
+            console.error('Error:', error);
+            this.taskPrompt();
+        });
+        this.taskPrompt();
+    }
+    promptDepartment = (task) => {
+        const questions = [
+            {
+                type: 'input',
+                message: 'What is the title of the name of the department?',
+                name: 'department',
+            }
+        ];
+        inquirer
+            .prompt(questions)
+            .then((response) => {
+                this.postResponse(task, response);
+            })
+    }
+    promptRole = (task) => {
+        const departments = apiCall('view-departments')
+        const questions = [
+            {
+                type: 'input',
+                message: 'What is the title of the role?',
+                name: 'title',
+            },
+            {
+                type: 'input',
+                message: 'What is the salary of the role?',
+                name: 'salary',
+            },
+            {
+                type: 'input',
+                message: 'What department of the role?',
+                name: 'department_id',
+            }
+        ];
+        inquirer
+            .prompt(questions)
+            .then((response) => {
+                this.postResponse(task, response);
+            })
+    }
+    promptEmployee = (task) => {
+        const questions = [
+            {
+                type: 'input',
+                message: "What is the employee\'s first name?",
+                name: 'first_name',
+            },
+            {
+                type: 'input',
+                message: "What is the employee\'s last name?",
+                name: 'last_name',
+            },
+            {
+                type: 'input',
+                message: "What is the employee\'s role id number?",
+                name: 'role_id',
+            },
+            {
+                type: 'input',
+                message: "What is the id number of the manager of the employee?",
+                name: 'manager_id',
+            },
+        ];
+        inquirer
+            .prompt(questions)
+            .then((response) => {
+                this.postResponse(task, response);
+            })
     }
     taskPrompt = () => {
         const questions = [
@@ -86,8 +185,7 @@ class EmployeeTracker {
             .prompt(questions)
             .then((response) => {
                 console.log("\n");
-                console.log(this.performAction(response.task));
-                this.taskPrompt();
+                this.apiCall(response.task);
             })
     }
 }
@@ -107,7 +205,7 @@ const db = mysql.createConnection(
 // THEN I am presented with a formatted table showing department names and department ids
 
 app.get('/api/view-departments', (req, res) => {
-    db.query('SELECT * FROM departments;', (error, results) => {
+    db.query('SELECT * FROM departments ORDER BY id;', (error, results) => {
         if (error) {
             res.status(401).json(error);
         } else {
@@ -120,7 +218,7 @@ app.get('/api/view-departments', (req, res) => {
 // THEN I am presented with the job title, role id, the department that role belongs to, and the salary for that role
 
 app.get('/api/view-roles', (req, res) => {
-    db.query('SELECT * FROM roles;',
+    db.query(`SELECT roles.id, roles.title AS 'Title', departments.name AS 'Department Name' FROM roles JOIN departments ON roles.department_id = departments.id ORDER BY roles.id ASC;`,
         (error, results) => {
         if (error) {
             res.status(401).json(error);
@@ -133,7 +231,20 @@ app.get('/api/view-roles', (req, res) => {
 // WHEN I choose to view all employees
 // THEN I am presented with a formatted table showing employee data, including employee ids, first names, last names, job titles, departments, salaries, and managers that the employees report to
 app.get('/api/view-employees', (req, res) => {
-    db.query('SELECT * FROM employees;',
+    db.query(`SELECT employees.id, 
+    employees.last_name AS 'Last Name',
+    employees.first_name AS 'First Name',
+    roles.title AS 'Title',
+    departments.name AS 'Department Name',
+    roles.salary AS 'Salary',
+    e.first_name AS 'Manager First Name',
+    e.last_name AS 'Manager Last Name',
+    e.id AS 'Manager ID'
+    FROM employees
+    JOIN roles ON employees.role_id = roles.id
+    JOIN departments ON departments.id = roles.id
+    JOIN employees as e ON employees.manager_id = e.id
+    ORDER BY employees.id ASC;`,
         (error, results) => {
         if (error) {
             res.status(401).json(error);
