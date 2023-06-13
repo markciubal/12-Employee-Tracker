@@ -1,5 +1,7 @@
 # 12 SQL: Employee Tracker
 
+https://github.com/markciubal/12-Employee-Tracker/assets/1228604/df911ab2-7860-4bb3-ba4c-73b5265aacb5
+
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
 ## Table of Contents
 - [Descrption](#description)
