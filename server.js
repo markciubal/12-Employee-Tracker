@@ -107,7 +107,7 @@ class EmployeeTracker {
             },
             {
                 type: 'list',
-                message: 'What department of the role?',
+                message: 'What department does the role belong in?',
                 name: 'department_id',
                 choices: departmentChoices
             }
