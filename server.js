@@ -12,36 +12,35 @@ app.use(express.json());
 
 class EmployeeTracker {
     constructor() { };
-    apiCall = (task) => {
+    apiCall = async (task, returnJSON) => {
         if (task === 'view-departments' || task === 'view-roles' || task === 'view-employees') {
-            console.log(task);
-            fetch('http://localhost:3001/api/' + task, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json()) // Parse the response as JSON
-            .then(data => {
-                // Process the data
-                console.log(data);
-                let headers = Object.keys(data[0]);
-                let table = new Table({ head: headers});
-                for (let datum of data) {
-                    let dataValues = [];
-                    for (let key of Object.keys(datum)) {
-                        dataValues.push(datum[key]);
+            try {
+                const response = await fetch('http://localhost:3001/api/' + task, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
                     }
-                    table.push(dataValues);
+                });
+                const data = await response.json();
+                if (returnJSON === true) {
+                    return data;
+                } else {
+                    let headers = Object.keys(data[0]);
+                    let table = new Table({ head: headers });
+                    for (let datum of data) {
+                        let dataValues = [];
+                        for (let key of Object.keys(datum)) {
+                            dataValues.push(datum[key]);
+                        }
+                        table.push(dataValues);
+                    }
+                    console.log("\n" + table.toString());
+                    this.promptTask();
                 }
-                console.log("\n" + table.toString());
-                this.taskPrompt();
-            })
-            .catch(error => {
-                // Handle any errors
+            } catch (error) {
                 console.error('Error:', error);
-                this.taskPrompt();
-            });
+                this.promptTask();
+            }
         } else if (task === 'add-department') {
             this.promptDepartment(task);
         } else if (task === 'add-role') {
@@ -49,14 +48,13 @@ class EmployeeTracker {
         } else if (task === 'add-employee') {
             this.promptEmployee(task);
         } else if (task === 'update-employee-role') {
-            console.log("This action has not been implemented.");
+            this.updateEmployeeRole(task);
         } else {
             console.log("This action has no consequence.");
         }
     }
-    postResponse = (task, response) => {
-        console.log(response);
-        fetch('http://localhost:3001/api/' + task, {
+    postResponse = async (task, response) => {
+        await fetch('http://localhost:3001/api/' + task, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -65,17 +63,15 @@ class EmployeeTracker {
         })
         .then(response => response.json()) // Parse the response as JSON
         .then(data => {
-            console.log(data);
-            this.taskPrompt();
+            this.promptTask();
         })
         .catch(error => {
             // Handle any errors
             console.error('Error:', error);
-            this.taskPrompt();
+            this.promptTask();
         });
-        this.taskPrompt();
     }
-    promptDepartment = (task) => {
+    promptDepartment = async (task) => {
         const questions = [
             {
                 type: 'input',
@@ -89,8 +85,15 @@ class EmployeeTracker {
                 this.postResponse(task, response);
             })
     }
-    promptRole = (task) => {
-        const departments = apiCall('view-departments')
+    promptRole = async (task) => {
+        let departments = await this.apiCall('view-departments', true);
+        let departmentChoices = [];
+        for (let department of departments) {
+            departmentChoices.push({
+                name: `${department['name']}`,
+                value: department.id
+            })
+        }
         const questions = [
             {
                 type: 'input',
@@ -103,18 +106,38 @@ class EmployeeTracker {
                 name: 'salary',
             },
             {
-                type: 'input',
+                type: 'list',
                 message: 'What department of the role?',
                 name: 'department_id',
+                choices: departmentChoices
             }
         ];
         inquirer
             .prompt(questions)
             .then((response) => {
                 this.postResponse(task, response);
-            })
+            });
     }
-    promptEmployee = (task) => {
+
+    promptEmployee = async (task) => {
+        let managers = await this.apiCall('view-employees', true);
+        let managerChoices = [];
+        for (let manager of managers) {
+            managerChoices.push({
+                name: `${manager['First Name']} ${manager['Last Name']}`,
+                value: manager.id
+            })
+        }
+
+        let roles = await this.apiCall('view-roles', true);
+        let roleChoices = [];
+        for (let role of roles) {
+            roleChoices.push({
+                name: ` ${role['Department Name']} - ${role['Title']}`,
+                value: role.id
+            })
+        }
+
         const questions = [
             {
                 type: 'input',
@@ -127,14 +150,16 @@ class EmployeeTracker {
                 name: 'last_name',
             },
             {
-                type: 'input',
+                type: 'list',
                 message: "What is the employee\'s role id number?",
                 name: 'role_id',
+                choices: roleChoices
             },
             {
-                type: 'input',
-                message: "What is the id number of the manager of the employee?",
+                type: 'list',
+                message: 'Who is the employee\'s manager?',
                 name: 'manager_id',
+                choices: managerChoices
             },
         ];
         inquirer
@@ -143,7 +168,47 @@ class EmployeeTracker {
                 this.postResponse(task, response);
             })
     }
-    taskPrompt = () => {
+    updateEmployeeRole = async (task) => {
+        let employees = await this.apiCall('view-employees', true);
+        let employeeChoices = [];
+        for (let employee of employees) {
+            employeeChoices.push({
+                name: `${employee['First Name']} ${employee['Last Name']}`,
+                value: employee.id
+            })
+        }
+
+        let roles = await this.apiCall('view-roles', true);
+        let roleChoices = [];
+        for (let role of roles) {
+            roleChoices.push({
+                name: ` ${role['Department Name']} - ${role['Title']}`,
+                value: role.id
+            })
+        }
+
+        const questions = [
+            {
+                type: 'list',
+                message: 'Who is the employee?',
+                name: 'id',
+                choices: employeeChoices
+            },
+            {
+                type: 'list',
+                message: 'What is the new role?',
+                name: 'role_id',
+                choices: roleChoices
+            },
+            
+        ];
+        inquirer
+            .prompt(questions)
+            .then((response) => {
+                this.postResponse(task, response);
+            })
+    }
+    promptTask = () => {
         const questions = [
             {
                 type: 'list',
@@ -184,7 +249,6 @@ class EmployeeTracker {
         inquirer
             .prompt(questions)
             .then((response) => {
-                console.log("\n");
                 this.apiCall(response.task);
             })
     }
@@ -218,7 +282,7 @@ app.get('/api/view-departments', (req, res) => {
 // THEN I am presented with the job title, role id, the department that role belongs to, and the salary for that role
 
 app.get('/api/view-roles', (req, res) => {
-    db.query(`SELECT roles.id, roles.title AS 'Title', departments.name AS 'Department Name' FROM roles JOIN departments ON roles.department_id = departments.id ORDER BY roles.id ASC;`,
+    db.query(`SELECT roles.id, roles.title AS 'Title', departments.name AS 'Department Name', roles.salary as 'Salary' FROM roles JOIN departments ON roles.department_id = departments.id ORDER BY roles.id ASC;`,
         (error, results) => {
         if (error) {
             res.status(401).json(error);
@@ -302,7 +366,7 @@ app.post('/api/add-employee', (req, res) => {
 // THEN I am prompted to select an employee to update and their new role and this information is updated in the database
 
 app.post('/api/update-employee-role', (req, res) => {
-    db.query(`UPDATE employees SET role_id=? WHERE id = ?;`,
+    db.query(`UPDATE employees SET role_id = ? WHERE id = ?;`,
         [req.body.role_id, req.body.id],
         (error, results) => {
         if (error) {
@@ -337,6 +401,6 @@ app.listen(PORT, () => {
       |___|  |___|  |_||__| |__||_______||___| |_||_______||___|  |_|   
 `)
     const tracker = new EmployeeTracker();
-    tracker.taskPrompt(); 
+    tracker.promptTask(); 
   
 });
